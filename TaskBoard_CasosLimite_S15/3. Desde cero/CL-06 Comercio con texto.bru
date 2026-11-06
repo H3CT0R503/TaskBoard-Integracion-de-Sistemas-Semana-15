@@ -1,0 +1,43 @@
+meta {
+  name: CL-06 · comercio_id con texto
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": "abc",
+    "cliente_nombre": "Luis Mena",
+    "monto": 25.5
+  }
+}
+
+tests {
+  test("CL-06 responde 422", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("CL-06 el error está en comercio_id", function () {
+    expect(res.getBody().errors).to.have.property("comercio_id");
+  });
+}
+
+docs {
+  DESDE CERO · caso negativo: tipo de dato equivocado.
+
+  Mi esperado: 422 con error en comercio_id. Lo que NO debe pasar es un 500: una
+  API robusta no se cae porque le manden texto donde esperaba un número.
+
+  Obtenido: 422. ✓ Pasa. La regla exists compara contra la columna id y no
+  encuentra nada, así que el texto se rechaza como un id inexistente.
+}

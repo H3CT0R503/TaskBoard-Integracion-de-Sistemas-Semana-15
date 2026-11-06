@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tienda en línea · Cliente de la API de TaskBoard</title>
+
+  <!--
+    Esta página no es parte de TaskBoard: es el papel de "otro
+    sistema". Representa a una tienda en línea que cobra a través de
+    la pasarela y quiere ver sus comercios y sus cobros.
+
+    Lo importante es lo que NO tiene. No usa Blade, no conoce los
+    modelos, no sabe que existe una tabla llamada comercios y no abre
+    una sola conexión a la base de datos. Lo único que conoce es el
+    contrato de la API: tres direcciones, un token y la forma del
+    JSON. Si mañana TaskBoard cambia de motor de base de datos o
+    renombra una columna, esta página sigue funcionando sin que nadie
+    la toque, y eso es exactamente lo que una API existe para lograr.
+
+    Vive en public/ porque es un archivo estático que el servidor
+    entrega tal cual, sin pasar por el enrutador de Laravel.
+  -->
+
+  <style>
+    /* Lo mínimo para que se lea. El punto de la clase es el consumo
+       de la API, no el diseño, pero una pantalla ilegible tampoco
+       sirve para mostrar que funciona. */
+    :root { color-scheme: light dark; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      max-width: 44rem;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.35rem; margin-bottom: .25rem; }
+    .sub { color: #6b7280; margin-top: 0; font-size: .9rem; }
+    form, .panel { border: 1px solid #d1d5db; border-radius: .5rem; padding: 1rem; }
+    label { display: block; font-size: .85rem; margin-top: .5rem; }
+    input { width: 100%; padding: .45rem; box-sizing: border-box; }
+    button { margin-top: .75rem; padding: .5rem 1rem; cursor: pointer; }
+    .barra { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+    ul { list-style: none; padding: 0; }
+    li { border-bottom: 1px solid #e5e7eb; padding: .6rem 0; }
+    .rubro { color: #6b7280; font-size: .85rem; }
+    .cobros { font-variant-numeric: tabular-nums; }
+    #estado { min-height: 1.3rem; font-size: .9rem; }
+    .error { color: #b91c1c; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <h1>Tienda en línea · Mis comercios en TaskBoard</h1>
+  <p class="sub">Cliente externo de la API. No conoce la base de datos: solo el contrato.</p>
+
+  <!-- Pantalla 1: el login. Se oculta cuando hay token. -->
+  <form id="formLogin">
+    <label for="email">Correo</label>
+    <input id="email" type="email" value="ana@taskboard.test" autocomplete="username">
+
+    <label for="password">Contraseña</label>
+    <input id="password" type="password" value="password123" autocomplete="current-password">
+
+    <button type="submit">Entrar</button>
+  </form>
+
+  <!-- Pantalla 2: el panel. Nace oculto y se muestra tras el login. -->
+  <div class="panel" id="panel" hidden>
+    <div class="barra">
+      <strong id="saludo"></strong>
+      <button type="button" id="btnSalir">Salir</button>
+    </div>
+    <ul id="lista"></ul>
+  </div>
+
+  <p id="estado"></p>
+
+  <script>
+    /*
+      La dirección base va sin dominio ni puerto a propósito. La
+      página y la API las entrega el mismo servidor, así que '/api'
+      resuelve contra el mismo origen y el navegador no tiene que
+      pedir permiso de CORS a nadie. Si esta página viviera en otro
+      dominio, el servidor de TaskBoard tendría que autorizarlo
+      explícitamente.
+    */
+    const base = '/api';
+
+    /*
+      El token vive en una variable de JavaScript y no en
+      localStorage. Eso significa que al recargar la página se pierde
+      y hay que volver a entrar, que es molesto, y es el precio que
+      se paga a cambio de algo: lo guardado en localStorage queda
+      legible para cualquier script que corra en la página, así que
+      una sola dependencia comprometida o un XSS alcanza para
+      llevárselo. En memoria, el token muere con la pestaña.
+    */
+    let token = null;
+
+    const $ = (id) => document.getElementById(id);
+    const formLogin = $('formLogin');
+    const panel = $('panel');
+    const estado = $('estado');
+
+    /* Un solo lugar que escribe el mensaje de estado, para no repetir
+       la clase de error en cada rama. */
+    function avisar(texto, esError = false) {
+      estado.textContent = texto;
+      estado.classList.toggle('error', esError);
+    }
+
+    /*
+      Volver al login. La llaman tres cosas distintas: el botón Salir,
+      cualquier respuesta 401 y el arranque de la página. Tenerla en
+      una función evita que una de las tres se olvide de limpiar el
+      token y deje la pantalla del formulario con una sesión a medias
+      todavía viva en memoria.
+    */
+    function mostrarLogin(mensaje = '', esError = false) {
+      token = null;
+      panel.hidden = true;
+      formLogin.hidden = false;
+      $('lista').replaceChildren();
+      avisar(mensaje, esError);
+    }
+
+    /*
+      Toda petición protegida pasa por acá. Dos razones:
+
+      1. El encabezado Authorization se arma en un solo lugar. El
+         formato es exacto: la palabra Bearer, UN espacio y el token
+         completo, con su número y su barra vertical incluidos. Pegar
+         el token sin "Bearer " es el error A del laboratorio de
+         depuración, y da 401 aunque el token sea perfecto.
+
+      2. El 401 se maneja una sola vez. Un cliente que revisa el
+         código ANTES de usar los datos es la diferencia entre
+         "sesión vencida, vuelve a entrar" y un error raro de
+         JavaScript al leer una propiedad de algo que no llegó.
+    */
+    async function pedir(ruta, opciones = {}) {
+      const respuesta = await fetch(base + ruta, {
+        ...opciones,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ' + token,
+          ...(opciones.headers ?? {}),
+        },
+      });
+
+      if (respuesta.status === 401) {
+        mostrarLogin('Tu sesión venció o el token fue revocado. Vuelve a entrar.', true);
+        return null;
+      }
+
+      return respuesta;
+    }
+
+    /*
+      Login. Es la única petición que NO lleva token, porque es la que
+      lo consigue.
+
+      Espera 201, no 200: la API responde "se creó algo nuevo", y ese
+      algo es el token. Un 422 significa credenciales que no
+      coinciden; un 429, que se agotaron los cinco intentos por
+      minuto del throttle.
+    */
+    formLogin.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      avisar('Entrando…');
+
+      const respuesta = await fetch(base + '/login', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: $('email').value,
+          password: $('password').value,
+          // El nombre del token. Así, en la lista de sesiones
+          // abiertas, esta página se distingue de Bruno y de tinker.
+          dispositivo: 'cliente-web',
+        }),
+      });
+
+      if (respuesta.status === 422) {
+        avisar('Credenciales incorrectas (422).', true);
+        return;
+      }
+
+      if (respuesta.status === 429) {
+        avisar('Demasiados intentos (429). Espera un minuto.', true);
+        return;
+      }
+
+      if (respuesta.status !== 201) {
+        avisar('La API respondió ' + respuesta.status + '.', true);
+        return;
+      }
+
+      const datos = await respuesta.json();
+      token = datos.token;
+
+      formLogin.hidden = true;
+      panel.hidden = false;
+      $('saludo').textContent = datos.usuario.name;
+
+      cargarPanel();
+    });
+
+    /*
+      Salir. En la web cerrar sesión borraba una cookie; acá se le
+      pide a la API que revoque el token, y eso es lo que de verdad
+      lo apaga: desde que el 204 vuelve, ese mismo texto responde 401
+      en cualquier herramienta.
+
+      Borrar el token solo del lado del navegador no sería cerrar
+      sesión, sería olvidarlo: la llave seguiría abriendo la puerta
+      para quien la tuviera copiada.
+    */
+    $('btnSalir').addEventListener('click', async () => {
+      const respuesta = await pedir('/logout', { method: 'POST' });
+
+      // null = ya hubo 401 y pedir() devolvió a la pantalla de login.
+      if (respuesta === null) return;
+
+      mostrarLogin(respuesta.status === 204
+        ? 'Sesión cerrada: el token quedó revocado.'
+        : 'La API respondió ' + respuesta.status + ' al cerrar sesión.');
+    });
+
+    /*
+      El panel del reto: comercios y, al lado de cada uno, cuántos de
+      sus cobros están Completados.
+
+      Son dos peticiones, no una, y el motivo es el contrato de la
+      API: /comercios devuelve los comercios y /transacciones los
+      cobros, y ninguna de las dos trae el conteo de la otra. El
+      cliente las junta, que es trabajo que le toca a él porque el
+      servidor no sabe qué pantalla se va a dibujar.
+
+      Van en paralelo con Promise.all: las dos salen al mismo tiempo
+      en vez de esperar a que termine la primera para lanzar la
+      segunda, y la página se arma en el tiempo de la más lenta.
+    */
+    async function cargarPanel() {
+      avisar('Cargando…');
+
+      const [resComercios, resCobros] = await Promise.all([
+        pedir('/comercios'),
+        pedir('/transacciones?estado=Completada'),
+      ]);
+
+      if (resComercios === null || resCobros === null) return;
+
+      if (!resComercios.ok || !resCobros.ok) {
+        avisar('La API respondió ' + resComercios.status + ' / ' + resCobros.status + '.', true);
+        return;
+      }
+
+      const comercios = (await resComercios.json()).data;
+      const cobros = (await resCobros.json()).data;
+
+      // Agrupar es contar cuántas veces aparece cada comercio_id. El
+      // Map se arma una vez y después cada comercio pregunta por el
+      // suyo, en vez de recorrer la lista de cobros por cada fila.
+      const completadasPorComercio = new Map();
+      for (const cobro of cobros) {
+        const actual = completadasPorComercio.get(cobro.comercio_id) ?? 0;
+        completadasPorComercio.set(cobro.comercio_id, actual + 1);
+      }
+
+      const lista = $('lista');
+      lista.replaceChildren();
+
+      for (const comercio of comercios) {
+        const completadas = completadasPorComercio.get(comercio.id) ?? 0;
+
+        /*
+          Todo se arma con createElement y textContent, nunca con
+          innerHTML. No es un gusto de estilo: el nombre de un
+          comercio lo escribe una persona, y si alguien registra un
+          comercio llamado <img src=x onerror=alert(1)>, con innerHTML
+          el navegador ejecutaría eso al dibujar la lista. Con
+          textContent el mismo texto se muestra como texto, etiquetas
+          incluidas, y no hay nada que ejecutar.
+        */
+        const fila = document.createElement('li');
+
+        const nombre = document.createElement('strong');
+        nombre.textContent = comercio.nombre;
+
+        const rubro = document.createElement('span');
+        rubro.className = 'rubro';
+        rubro.textContent = ' · ' + (comercio.rubro ?? 'Sin rubro');
+
+        const conteo = document.createElement('div');
+        conteo.className = 'cobros';
+        conteo.textContent = completadas === 1
+          ? '1 cobro completado'
+          : completadas + ' cobros completados';
+
+        fila.append(nombre, rubro, conteo);
+        lista.appendChild(fila);
+      }
+
+      avisar(comercios.length === 1
+        ? '1 comercio'
+        : comercios.length + ' comercios');
+    }
+
+    // Arranque: sin token todavía, así que la pantalla que toca es el
+    // formulario.
+    mostrarLogin();
+  </script>
+</body>
+</html>

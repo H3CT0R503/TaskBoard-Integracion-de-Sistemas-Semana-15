@@ -1,0 +1,2060 @@
+{
+  "info": {
+    "name": "TaskBoard API - Semana 15 (casos limite)",
+    "description": "Coleccion de pruebas de la API de TaskBoard.\n\nSemana 15: Guia N.o 15 (jueves, casos limite) y N.o 16 (viernes, manejo de errores e integridad).\nUniversidad Pedagogica de El Salvador - Integracion de Sistemas - Ciclo 02-2026.\nHector Alonso Interiano Figueroa - IF-64141-63.\n\nArrastra desde la Semana 14 las carpetas 0 a 3, que siguen sirviendo como prueba de regresion: lo que funcionaba antes tiene que seguir funcionando. La carpeta nueva es '4. Casos limite', con los 15 casos de la bitacora.\n\nANTES DE EMPEZAR\n1. php artisan serve\n2. php artisan migrate:fresh --seed\n3. Correr la carpeta '0. Publicas' primero: ahi se llenan tokenAna y tokenCarlos.\n\nLOS MISMOS CASOS ESTAN EN BRUNO\nLa carpeta TaskBoard_CasosLimite_S15 del repositorio es la coleccion de Bruno que pide la guia, con los mismos 15 casos y las mismas pruebas. Esta de Postman existe para poder correrlos sin instalar otra herramienta; las dos dan el mismo resultado.\n\nOJO CON EL LIMITE DE INTENTOS\n/login tiene throttle:5,1. La coleccion completa hace 4 logins, asi que correrla dos veces dentro del mismo minuto devuelve 429 en los ultimos.\n\nDATOS DEL SEEDER (clave: password123)\nAna Lopez    ana@taskboard.test     comercios 1 y 2\nCarlos Perez carlos@taskboard.test  comercios 3 y 4\nLa columna monto es decimal(8,2): el tope real es 999999.99.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "host",
+      "value": "http://127.0.0.1:8000/api",
+      "type": "string",
+      "description": "Si el puerto 8000 esta ocupado, php artisan serve usa otro y hay que cambiarlo aca."
+    },
+    {
+      "key": "tokenAna",
+      "value": "",
+      "type": "string",
+      "description": "Lo llena el script del Login Ana. Nace vacio a proposito: un token real guardado en este archivo seria una llave publicada en el repositorio."
+    },
+    {
+      "key": "tokenCarlos",
+      "value": "",
+      "type": "string",
+      "description": "Lo llena el script del Login Carlos."
+    },
+    {
+      "key": "tokenMovilId",
+      "value": "",
+      "type": "string",
+      "description": "El id (no el texto) del segundo token de Ana, para probar la revocacion de un dispositivo concreto."
+    },
+    {
+      "key": "transaccionNueva",
+      "value": "",
+      "type": "string",
+      "description": "El id de la transaccion que crea la peticion 1.6, para que la 1.9 la borre y la base quede como estaba."
+    },
+    {
+      "key": "nombre255",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "nombre256",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "idCL01",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "idCL08",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "idCL15",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "idCL16",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "idCL17",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Publicas",
+      "description": "Las unicas peticiones que no llevan token, porque son las que lo consiguen.",
+      "item": [
+        {
+          "name": "Login Ana",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana@taskboard.test\",\n  \"password\": \"password123\",\n  \"dispositivo\": \"postman-ana\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/login",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "Espera 201 Created con token y tipo Bearer.\n\nEs 201 y no 200 porque la API no esta devolviendo algo que ya existia: esta creando un token nuevo en la tabla personal_access_tokens.\n\nEl campo dispositivo es obligatorio y es el nombre del token. Sirve para distinguir despues esta sesion de la del celular o la de tinker."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.test('devuelve un token', () => pm.expect(j.token).to.be.a('string').and.not.empty);",
+                  "pm.test('el tipo es Bearer', () => pm.expect(j.tipo).to.eql('Bearer'));",
+                  "pm.test('el token NO es el hash guardado', () => pm.expect(j.token).to.include('|'));",
+                  "",
+                  "// Guardar el token en una variable es lo que evita andar",
+                  "// copiandolo a mano en cada peticion. Es el equivalente de",
+                  "// bru.setVar('tokenAna', res.getBody().token) en Bruno.",
+                  "pm.collectionVariables.set('tokenAna', j.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Carlos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"carlos@taskboard.test\",\n  \"password\": \"password123\",\n  \"dispositivo\": \"postman-carlos\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/login",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "El segundo usuario. Sin el no hay forma de comprobar el aislamiento: con un solo token, un 404 podria salir porque la fila no existe y no porque sea ajena."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.test('es Carlos y no Ana', () => pm.expect(j.usuario.email).to.eql('carlos@taskboard.test'));",
+                  "pm.collectionVariables.set('tokenCarlos', j.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login con clave incorrecta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana@taskboard.test\",\n  \"password\": \"esta-no-es\",\n  \"dispositivo\": \"postman-intruso\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/login",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "Espera 422 con el mensaje 'Las credenciales no coinciden.'\n\nEl mismo mensaje sale con un correo que no existe. Es a proposito: si cada caso respondiera distinto, la API serviria para averiguar que correos tienen cuenta probando direcciones una por una."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Content', () => pm.response.to.have.status(422));",
+                  "const j = pm.response.json();",
+                  "pm.test('el mensaje no dice si el correo existe', () => pm.expect(j.message).to.eql('Las credenciales no coinciden.'));",
+                  "pm.test('no entrega ningun token', () => pm.expect(j).to.not.have.property('token'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Ana desde un segundo dispositivo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana@taskboard.test\",\n  \"password\": \"password123\",\n  \"dispositivo\": \"app-movil-ana\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/login",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "Un segundo token para la MISMA Ana, con otro nombre de dispositivo.\n\nSirve para el reto del jueves: con dos tokens vivos, GET /api/tokens muestra dos sesiones abiertas y se puede cerrar una sola sin botar la otra. Es el caso real del telefono robado.\n\nEl script guarda el id del token, que es el numero antes de la barra vertical."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const token = pm.response.json().token;",
+                  "pm.test('el segundo token es distinto al primero', () => pm.expect(token).to.not.eql(pm.collectionVariables.get('tokenAna')));",
+                  "",
+                  "// El texto del token tiene la forma 'id|secreto'. El id es lo",
+                  "// unico que necesita DELETE /api/tokens/{id}.",
+                  "pm.collectionVariables.set('tokenMovilId', token.split('|')[0]);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Ana",
+      "description": "Todo lo de adentro hereda Auth: Bearer {{tokenAna}}. Ninguna peticion escribe el token a mano.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{tokenAna}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "1.1 Yo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/yo",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "yo"
+              ]
+            },
+            "description": "Espera 200 con id, name y email de Ana.\n\nEl servidor no recibio ningun dato que diga quien es Ana: lo dedujo del token. Esa es toda la idea de la semana."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('el token identifica a Ana', () => pm.expect(j.email).to.eql('ana@taskboard.test'));",
+                  "pm.test('no expone la contrasena', () => pm.expect(j).to.not.have.property('password'));",
+                  "pm.test('no expone fechas internas', () => pm.expect(j).to.not.have.property('created_at'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 Mis comercios",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/comercios",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "comercios"
+              ]
+            },
+            "description": "Espera 200 con DOS comercios: Cafe Amanecer y Pupuseria Dona Marta.\n\nLa prueba de que son dos es la mas importante de la coleccion. Si manana alguien cambia la ruta y vuelve a poner Comercio::all(), la respuesta seguiria siendo 200 y a simple vista pareceria bien: lo unico que delataria la fuga es que aparezcan cuatro."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('Ana ve exactamente sus 2 comercios', () => pm.expect(d.length).to.eql(2));",
+                  "pm.test('no aparece ningun comercio de Carlos', () => pm.expect(d.map(c => c.id)).to.eql([1, 2]));",
+                  "pm.test('no expone user_id', () => pm.expect(d[0]).to.not.have.property('user_id'));",
+                  "pm.test('el listado no carga transacciones (evita N+1)', () => pm.expect(d[0]).to.not.have.property('transacciones'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 Un comercio de Carlos (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/comercios/3",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "comercios",
+                "3"
+              ]
+            },
+            "description": "Espera 404.\n\nEl comercio 3 (Ferreteria El Tornillo) existe, pero es de Carlos. La API responde 404 y no 403 a proposito: un 403 confirmaria que esa fila existe, y con ids correlativos eso alcanza para contar cuantos comercios hay en el sistema."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('responde JSON y no una pagina HTML', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('json'));",
+                  "pm.test('el mensaje no confirma que el comercio exista', () => pm.expect(pm.response.text()).to.not.include('Ferreteria'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.4 Mis transacciones",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Espera 200 y solo transacciones de los comercios 1 y 2.\n\nLa transaccion no tiene columna user_id: el filtro viaja por la relacion, user -> comercios -> transacciones."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('todas son de comercios de Ana', () => pm.expect(d.every(t => [1, 2].includes(t.comercio_id))).to.be.true);",
+                  "pm.test('el monto es numero, no texto', () => pm.expect(d[0].monto).to.be.a('number'));",
+                  "pm.test('la fecha es ISO 8601', () => pm.expect(d[0].fecha).to.match(/^\\d{4}-\\d{2}-\\d{2}T/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.5 Una transaccion de Carlos (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones/4",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones",
+                "4"
+              ]
+            },
+            "description": "Espera 404. La transaccion 4 es del comercio 4, que es de Carlos.\n\nEl route model binding SI encuentra la fila: el 404 lo pone el metodo autorizar() del controlador, despues de mirar de quien es el comercio."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('no filtra el nombre del cliente ajeno', () => pm.expect(pm.response.text()).to.not.include('Sofia'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.6 Crear en mi comercio (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"Luis Mena\",\n  \"monto\": 30.25\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Espera 201 Created.\n\nEl campo estado no se manda: la columna nace en 'Iniciada' por el default de la migracion, y el controlador lo deja fuera aunque venga."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('nace en Iniciada', () => pm.expect(d.estado).to.eql('Iniciada'));",
+                  "pm.test('quedo en el comercio que pedi', () => pm.expect(d.comercio_id).to.eql(1));",
+                  "pm.collectionVariables.set('transaccionNueva', d.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.7 Crear en un comercio de Carlos (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 3,\n  \"cliente_nombre\": \"Cliente falso\",\n  \"monto\": 99.99\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Espera 422, y es la peticion que mejor muestra que la validacion vieja volvio a servir.\n\nNo hay una sola linea nueva protegiendo esto: la regla exists con where user_id esta en GuardarTransaccionRequest desde la Semana 12. Lo que faltaba era el usuario, y ahora lo trae el token.\n\nEs 422 y no 404 porque el problema no es la direccion sino el dato que se mando en el cuerpo."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Content', () => pm.response.to.have.status(422));",
+                  "const j = pm.response.json();",
+                  "pm.test('el error senala comercio_id', () => pm.expect(j.errors).to.have.property('comercio_id'));",
+                  "pm.test('el mensaje no dice de quien es el comercio', () => pm.expect(j.errors.comercio_id[0]).to.eql('Ese comercio no está disponible en tu cuenta.'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.8 Mis cobros Completados",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones?estado=Completada",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "Completada"
+                }
+              ]
+            },
+            "description": "Espera 200 con solo las transacciones Completadas de Ana.\n\nEs la peticion que consume el panel de public/cliente.html para contar cobros por comercio."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('el filtro se respeta', () => pm.expect(d.every(t => t.estado === 'Completada')).to.be.true);",
+                  "pm.test('siguen siendo solo de Ana', () => pm.expect(d.every(t => [1, 2].includes(t.comercio_id))).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.9 Borrar la transaccion que cree (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones/{{transaccionNueva}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones",
+                "{{transaccionNueva}}"
+              ]
+            },
+            "description": "Espera 204 No Content.\n\nDeja la base como estaba antes de correr la coleccion, para que las pruebas de conteo sigan dando lo mismo en la siguiente corrida."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));",
+                  "pm.test('no devuelve cuerpo', () => pm.expect(pm.response.text()).to.be.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.10 Mis sesiones abiertas (reto)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/tokens",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tokens"
+              ]
+            },
+            "description": "El reto del jueves. Espera 200 con DOS sesiones: postman-ana y app-movil-ana.\n\nLa prueba que de verdad importa es la ultima: la respuesta NO debe traer la columna token, que es donde vive el hash. Una pantalla de dispositivos conectados no necesita el secreto para cumplir su funcion."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('aparecen las dos sesiones que abri', () => pm.expect(d.map(t => t.dispositivo)).to.include.members(['postman-ana', 'app-movil-ana']));",
+                  "pm.test('cada una dice de que dispositivo es', () => pm.expect(d[0]).to.have.property('dispositivo'));",
+                  "pm.test('marca cual es la sesion actual', () => pm.expect(d.filter(t => t.es_el_actual).length).to.eql(1));",
+                  "pm.test('NUNCA expone la columna token (el hash)', () => pm.expect(d[0]).to.not.have.property('token'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.11 Cerrar la sesion del movil (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/tokens/{{tokenMovilId}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "tokens",
+                "{{tokenMovilId}}"
+              ]
+            },
+            "description": "El extra del reto: cerrar la sesion de UN dispositivo desde otro.\n\nEs el caso del telefono robado. Se revoca app-movil-ana y la sesion de Postman sigue viva, que es justo lo que pasaria en la vida real."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.12 Logout (204)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/logout",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "logout"
+              ]
+            },
+            "description": "Espera 204.\n\nEn la API no hay sesion que destruir: cerrar sesion es borrar la fila del token. currentAccessToken() borra SOLO el token con el que se hizo esta peticion."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.13 Yo con el token ya revocado (401)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/yo",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "yo"
+              ]
+            },
+            "description": "Espera 401 Unauthenticated.\n\nEl token que se manda es EL MISMO de la peticion 1.1, letra por letra, y hace un segundo funcionaba. Esa es la diferencia entre borrar el token del cliente (olvidarlo) y revocarlo en el servidor (apagarlo).\n\nDespues de esta peticion hay que volver a correr 'Login Ana' para seguir usando la carpeta."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('el mensaje es Unauthenticated', () => pm.expect(pm.response.json().message).to.eql('Unauthenticated.'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Carlos",
+      "description": "La otra identidad. Hereda Auth: Bearer {{tokenCarlos}}.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{tokenCarlos}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "2.1 Yo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/yo",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "yo"
+              ]
+            },
+            "description": "Espera 200 con los datos de Carlos. Misma direccion que 1.1 y respuesta distinta: lo unico que cambio fue el token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('el token identifica a Carlos', () => pm.expect(pm.response.json().email).to.eql('carlos@taskboard.test'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 Mis comercios",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/comercios",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "comercios"
+              ]
+            },
+            "description": "Espera 200 con los comercios 3 y 4, y ninguno de Ana."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('Carlos ve exactamente sus 2 comercios', () => pm.expect(d.map(c => c.id)).to.eql([3, 4]));",
+                  "pm.test('no aparece ningun comercio de Ana', () => pm.expect(d.map(c => c.nombre).join()).to.not.include('Amanecer'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.3 Borrar una transaccion de Ana (404)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones/1",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones",
+                "1"
+              ]
+            },
+            "description": "Espera 404, y es la peticion mas importante de esta carpeta.\n\nLa transaccion 1 existe y es del comercio 1, de Ana. Un 404 aca significa dos cosas buenas al mismo tiempo: que no se borro nada, y que la respuesta ni siquiera confirma que esa transaccion exista.\n\nSi esta prueba se pusiera en rojo, la API estaria dejando que cualquiera con una cuenta borre los cobros de los demas."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('no respondio 204 (no borro nada)', () => pm.expect(pm.response.code).to.not.eql(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Sin token",
+      "description": "Que contesta la API cuando nadie se identifica. Las dos peticiones van con Auth en modo No Auth.",
+      "auth": {
+        "type": "noauth"
+      },
+      "item": [
+        {
+          "name": "3.1 Comercios sin token, con Accept (401)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/comercios",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "comercios"
+              ]
+            },
+            "description": "Espera 401 con { \"message\": \"Unauthenticated.\" }.\n\nEs la misma direccion que la semana pasada devolvia los cuatro comercios de la base sin preguntar nada."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('responde JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('json'));",
+                  "pm.test('no entrega ni un comercio', () => pm.expect(pm.response.json()).to.not.have.property('data'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.2 Comercios sin token y SIN Accept (401 en JSON)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{host}}/comercios",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "comercios"
+              ]
+            },
+            "description": "En la Semana 14 esta peticion respondia 302 con HTML: sin el encabezado Accept, Laravel suponia que del otro lado habia un navegador y redirigia a la pantalla de login web.\n\nEl viernes de la Semana 15 eso cambio a proposito. shouldRenderJsonWhen en bootstrap/app.php hace que todo lo que cuelga de /api responda JSON aunque falte el Accept, porque bajo /api nunca hay un navegador esperando una pantalla.\n\nPor eso la prueba de la semana pasada ('la respuesta NO es JSON') se puso en rojo, y por eso esta reescrita. No es que la regresion fallara: es que la prueba afirmaba un comportamiento que decidimos cambiar. La diferencia entre los dos casos se decide leyendo, no cambiando la prueba hasta que pase."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('responde JSON aunque no se pidio', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('json'));",
+                  "pm.test('el mensaje es Unauthenticated', () => pm.expect(pm.response.json().message).to.eql('Unauthenticated.'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Casos limite",
+      "description": "Los 15 casos de la bitacora de la Semana 15, mas dos propios.\n\nLas pruebas escritas son el CONTRATO, no lo que la API respondia el jueves. Con el codigo del jueves quedaban en rojo CL-07, CL-09, CL-10, CL-12, CL-13 y CL-14; con las correcciones del viernes quedan todas en verde sin tocar una sola prueba. Eso es una prueba de regresion.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{tokenAna}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "CL-01 Monto minimo valido (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Valor limite: justo EN el minimo. Esperado 201, porque 0.01 cumple min:0.01.\n\nGuarda el id para que la carpeta de limpieza lo borre al final.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"Luis Mena\",\n  \"monto\": 0.01\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-01 responde 201', () => pm.response.to.have.status(201));",
+                  "",
+                  "pm.collectionVariables.set('idCL01', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-02 Monto cero (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "EJEMPLO RESUELTO de la guia. Valor limite, justo debajo del minimo.\n\nEsperado 422 con error en monto. Pasa desde el jueves.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"Luis Mena\",\n  \"monto\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-02 responde 422', () => pm.response.to.have.status(422));",
+                  "pm.test('CL-02 el error esta en monto', () => pm.expect(pm.response.json().errors).to.have.property('monto'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-03 Monto apenas negativo (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Valor limite: justo debajo de cero. Un cobro negativo no es un cobro, seria una devolucion, y eso tendria que ser otra operacion.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"Luis Mena\",\n  \"monto\": -0.01\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-03 responde 422', () => pm.response.to.have.status(422));",
+                  "pm.test('CL-03 el error esta en monto', () => pm.expect(pm.response.json().errors).to.have.property('monto'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-04 Comercio inexistente (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Caso negativo: un id que no existe. Esperado 422 y no 404, porque la direccion /api/transacciones si existe; lo que esta mal es un dato del cuerpo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 999,\n  \"cliente_nombre\": \"Luis Mena\",\n  \"monto\": 25.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-04 responde 422', () => pm.response.to.have.status(422));",
+                  "pm.test('CL-04 el error esta en comercio_id', () => pm.expect(pm.response.json().errors).to.have.property('comercio_id'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-05 Monto con coma decimal (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Particion: numero escrito a la europea. La regla numeric no acepta la coma, y esta bien: si la aceptara, '1,500' podria ser 1.5 o 1500 segun el pais.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"Luis Mena\",\n  \"monto\": \"25,50\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-05 responde 422', () => pm.response.to.have.status(422));",
+                  "pm.test('CL-05 el error esta en monto', () => pm.expect(pm.response.json().errors).to.have.property('monto'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-06 comercio_id con texto (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Caso negativo: tipo de dato equivocado. Lo que NO debe pasar es un 500.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": \"abc\",\n  \"cliente_nombre\": \"Luis Mena\",\n  \"monto\": 25.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-06 responde 422', () => pm.response.to.have.status(422));",
+                  "pm.test('CL-06 el error esta en comercio_id', () => pm.expect(pm.response.json().errors).to.have.property('comercio_id'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-07 Monto sobre el maximo (422) - era E-01",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "ERROR E-01, corregido el viernes.\n\nEl jueves respondia 500: el monto llegaba hasta el INSERT y MySQL reventaba con 'Numeric value out of range'. El cliente recibia 'error del servidor' cuando el problema era un dato suyo.\n\nCorreccion: regla max:999999.99, que es el tope de decimal(8,2).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"Luis Mena\",\n  \"monto\": 100000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-07 responde 422', () => pm.response.to.have.status(422));",
+                  "pm.test('CL-07 el error esta en monto', () => pm.expect(pm.response.json().errors).to.have.property('monto'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-08 Nombre de 255 caracteres (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Valor limite: exactamente el maximo. El nombre se genera en el script de Pre-request con repeat(255), para no escribirlo a mano.\n\nLa segunda prueba comprueba que se guardo entero y no recortado.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"{{nombre255}}\",\n  \"monto\": 25.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('nombre255', 'a'.repeat(255));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-08 responde 201', () => pm.response.to.have.status(201));",
+                  "pm.test('CL-08 guardo los 255 caracteres', () => pm.expect(pm.response.json().data.cliente.length).to.eql(255));",
+                  "",
+                  "pm.collectionVariables.set('idCL08', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-09 Tres decimales (422) - era E-02",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "ERROR E-02, corregido el viernes.\n\nEl jueves respondia 201 y guardaba 26.00: MySQL redondeaba el tercer decimal en silencio. El cliente pedia cobrar 25.999, la pasarela registraba 26.00 y le contestaba que todo salio bien.\n\nCorreccion: regla decimal:0,2 (de cero a dos decimales, no exactamente dos).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"Luis Mena\",\n  \"monto\": 25.999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-09 responde 422', () => pm.response.to.have.status(422));",
+                  "pm.test('CL-09 el error esta en monto', () => pm.expect(pm.response.json().errors).to.have.property('monto'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-10 Nombre de 256 caracteres (422) - era E-04",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Valor limite: un caracter por encima del maximo. Es el par de CL-08.\n\nERROR E-04, corregido el viernes: el codigo 422 ya era correcto, pero el mensaje llegaba como 'validation.max.string', la clave interna del archivo de idiomas sin traducir. Severidad Baja: la API funcionaba, pero le entregaba al cliente un texto que nadie puede leer.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"{{nombre256}}\",\n  \"monto\": 25.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('nombre256', 'a'.repeat(256));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-10 responde 422', () => pm.response.to.have.status(422));",
+                  "pm.test('CL-10 el error esta en cliente_nombre', () => pm.expect(pm.response.json().errors).to.have.property('cliente_nombre'));",
+                  "pm.test('CL-10 el mensaje esta en espanol', () => pm.expect(pm.response.json().errors.cliente_nombre[0]).to.not.include('validation.'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-11 Nombre con solo espacios (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Particion: una cadena que parece llena pero esta vacia.\n\nPasa, y es interesante por que: required por si sola aceptaria espacios. Lo que los convierte en vacio es el middleware TrimStrings de Laravel, que recorta la entrada ANTES de validar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"     \",\n  \"monto\": 25.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-11 responde 422', () => pm.response.to.have.status(422));",
+                  "pm.test('CL-11 el error esta en cliente_nombre', () => pm.expect(pm.response.json().errors).to.have.property('cliente_nombre'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-12 Estado al crear (422) - era E-03",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "ERROR E-03, corregido el viernes.\n\nEl jueves quedo como CONTRATO AMBIGUO: nadie habia decidido que debia pasar si el cliente manda 'estado' al crear. Respondia 201 y lo descartaba en silencio, asi que el cliente se quedaba creyendo que su transaccion nacio Completada cuando en realidad nacio Iniciada.\n\nDecision: rechazarlo con 422. Regla 'estado' => ['prohibited'].",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"Luis Mena\",\n  \"monto\": 25.5,\n  \"estado\": \"Completada\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-12 responde 422', () => pm.response.to.have.status(422));",
+                  "pm.test('CL-12 el error esta en estado', () => pm.expect(pm.response.json().errors).to.have.property('estado'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-13 JSON con coma al final (400) - era E-05",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "ERROR E-05, corregido el viernes.\n\nEl cuerpo tiene una coma de mas, asi que no es JSON valido. El jueves la API respondia 422 diciendo que faltaban comercio_id, cliente_nombre y monto: una pista falsa, porque los tres venian. Sin Content-Type legible, Laravel deja el cuerpo sin parsear y la validacion ve un arreglo vacio.\n\nCorreccion: el middleware ValidarCuerpoJson responde 400 antes de validar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"comercio_id\": 1, \"cliente_nombre\": \"Luis Mena\", \"monto\": 25.50, }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-13 responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('CL-13 el mensaje habla del JSON', () => pm.expect(pm.response.json().message.toLowerCase()).to.include('json'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-14 Sin Content-Type (415)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "El JSON es valido; lo que falta es el encabezado Content-Type. El cuerpo va en modo Text para que Postman no lo agregue solo.\n\nEl jueves quedo como CONTRATO AMBIGUO: no se podia escribir un esperado porque nadie habia decidido que debia pasar. Respondia 422 'faltan los campos', otra vez apuntando al lugar equivocado.\n\nDecision del viernes: 415 Unsupported Media Type, que es el codigo que existe para exactamente esto.",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"comercio_id\": 1, \"cliente_nombre\": \"Luis Mena\", \"monto\": 25.50 }",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-14 responde 415', () => pm.response.to.have.status(415));",
+                  "pm.test('CL-14 el mensaje explica que falta', () => pm.expect(pm.response.json().message).to.include('application/json'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-15 Idempotencia (1) crear",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Primer paso de tres. Crea la transaccion que los dos DELETE van a borrar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"Prueba de idempotencia\",\n  \"monto\": 25.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-15.1 responde 201', () => pm.response.to.have.status(201));",
+                  "",
+                  "pm.collectionVariables.set('idCL15', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-15 Idempotencia (2) borrar (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones/{{idCL15}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones",
+                "{{idCL15}}"
+              ]
+            },
+            "description": "Esperado 204: se hizo lo que se pidio y no hay nada que devolver."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-15.2 responde 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-15 Idempotencia (3) repetir (404)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones/{{idCL15}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones",
+                "{{idCL15}}"
+              ]
+            },
+            "description": "La MISMA peticion otra vez. Esperado 404: la fila ya no esta.\n\nEl punto del experimento: los dos codigos son distintos (204 y 404) pero el ESTADO FINAL de la base es el mismo. Eso es ser idempotente.\n\nPOST no lo es, y ahi esta el peligro: si una tienda reintenta un cobro porque no le llego la respuesta a tiempo, quedan DOS cobros al mismo cliente. Por eso las pasarelas reales piden una clave de idempotencia en cada POST."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-15.3 responde 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-16 Nombre con emoji (201) - caso propio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Particion: caracteres fuera del alfabeto latino. Un emoji ocupa cuatro bytes en UTF-8, y si la base no estuviera en utf8mb4 se guardaria recortado.\n\nLo probe porque es un caso real: la gente escribe nombres con tildes, con n y con emojis, y un recorte silencioso ahi es un dato corrupto que nadie ve hasta que alguien busca al cliente y no lo encuentra.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"Luis Mena 🎉\",\n  \"monto\": 25.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-16 responde 201', () => pm.response.to.have.status(201));",
+                  "pm.test('CL-16 el emoji volvio igual', () => pm.expect(pm.response.json().data.cliente).to.eql('Luis Mena 🎉'));",
+                  "",
+                  "pm.collectionVariables.set('idCL16', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CL-17 Monto como texto (201) - caso propio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones"
+              ]
+            },
+            "description": "Particion: el numero correcto con el tipo equivocado. numeric acepta una cadena que contenga un numero, y me parece bien: muchos clientes de JavaScript mandan los valores de un formulario como texto.\n\nLo que si tiene que pasar es que la RESPUESTA lo devuelva como numero, que es el contrato que fijo el Resource en la Semana 13.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comercio_id\": 1,\n  \"cliente_nombre\": \"Luis Mena\",\n  \"monto\": \"25.50\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CL-17 responde 201', () => pm.response.to.have.status(201));",
+                  "pm.test('CL-17 vuelve como numero', () => pm.expect(pm.response.json().data.monto).to.be.a('number'));",
+                  "",
+                  "pm.collectionVariables.set('idCL17', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Limpieza",
+      "description": "Borra las transacciones que crearon CL-01, CL-08, CL-16 y CL-17.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{tokenAna}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Borrar la transaccion de CL-01",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones/{{idCL01}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones",
+                "{{idCL01}}"
+              ]
+            },
+            "description": "Borra la transaccion que creo CL-01, con el id que esa peticion guardo.\n\nNo es un caso limite: es higiene. Sin esta carpeta, cada corrida dejaria cuatro filas nuevas y los conteos del experimento de integridad se irian moviendo entre una corrida y la siguiente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Limpieza CL-01 responde 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar la transaccion de CL-08",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones/{{idCL08}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones",
+                "{{idCL08}}"
+              ]
+            },
+            "description": "Borra la transaccion que creo CL-08, con el id que esa peticion guardo.\n\nNo es un caso limite: es higiene. Sin esta carpeta, cada corrida dejaria cuatro filas nuevas y los conteos del experimento de integridad se irian moviendo entre una corrida y la siguiente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Limpieza CL-08 responde 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar la transaccion de CL-16",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones/{{idCL16}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones",
+                "{{idCL16}}"
+              ]
+            },
+            "description": "Borra la transaccion que creo CL-16, con el id que esa peticion guardo.\n\nNo es un caso limite: es higiene. Sin esta carpeta, cada corrida dejaria cuatro filas nuevas y los conteos del experimento de integridad se irian moviendo entre una corrida y la siguiente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Limpieza CL-16 responde 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar la transaccion de CL-17",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{host}}/transacciones/{{idCL17}}",
+              "host": [
+                "{{host}}"
+              ],
+              "path": [
+                "transacciones",
+                "{{idCL17}}"
+              ]
+            },
+            "description": "Borra la transaccion que creo CL-17, con el id que esa peticion guardo.\n\nNo es un caso limite: es higiene. Sin esta carpeta, cada corrida dejaria cuatro filas nuevas y los conteos del experimento de integridad se irian moviendo entre una corrida y la siguiente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Limpieza CL-17 responde 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

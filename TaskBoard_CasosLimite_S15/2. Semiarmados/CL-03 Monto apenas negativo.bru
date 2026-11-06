@@ -1,0 +1,42 @@
+meta {
+  name: CL-03 · Monto apenas negativo
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 1,
+    "cliente_nombre": "Luis Mena",
+    "monto": -0.01
+  }
+}
+
+tests {
+  test("CL-03 responde 422", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("CL-03 el error está en monto", function () {
+    expect(res.getBody().errors).to.have.property("monto");
+  });
+}
+
+docs {
+  SEMIARMADO · valor límite, justo debajo de cero.
+
+  Mi esperado: 422 con error en "monto". Un cobro negativo no es un cobro: sería
+  una devolución, y eso tendría que ser otra operación con su propia regla.
+
+  Obtenido: 422 "El monto debe ser mayor a cero." ✓ Pasa.
+}

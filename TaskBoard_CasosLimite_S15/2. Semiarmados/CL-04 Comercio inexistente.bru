@@ -1,0 +1,46 @@
+meta {
+  name: CL-04 · Comercio inexistente
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 999,
+    "cliente_nombre": "Luis Mena",
+    "monto": 25.5
+  }
+}
+
+tests {
+  test("CL-04 responde 422", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("CL-04 el error está en comercio_id", function () {
+    expect(res.getBody().errors).to.have.property("comercio_id");
+  });
+}
+
+docs {
+  SEMIARMADO · caso negativo, un id que no existe.
+
+  Mi esperado: 422 y no 404. El 404 diría que la DIRECCIÓN no existe, y
+  /api/transacciones sí existe; lo que está mal es un dato del cuerpo, y eso es
+  exactamente lo que significa 422.
+
+  Obtenido: 422 "Ese comercio no está disponible en tu cuenta." ✓ Pasa.
+
+  El mensaje es el mismo que sale con un comercio ajeno (de Carlos), y eso es
+  deliberado desde la Semana 14: distinguirlos confirmaría que el comercio existe.
+}

@@ -1,0 +1,312 @@
+####################################################################
+# TaskBoard — Colección de pruebas de la API PROTEGIDA
+# Semana 14 — Autenticación de API con Laravel Sanctum
+#
+# Cómo usarlo: instalar la extensión "REST Client" (Huachao Mao) en
+# VS Code, abrir este archivo y pulsar "Send Request" sobre la línea
+# del método de cada petición.
+#
+# Antes de empezar: php artisan serve
+#
+# EL ORDEN IMPORTA. Las peticiones 1 y 2 son los dos logins, y de su
+# respuesta salen los tokens que usan todas las demás. Si se manda
+# una petición protegida sin haber mandado antes su login, el token
+# va vacío y la respuesta es 401.
+#
+# Accept: application/json va en TODAS las peticiones, menos en la
+# número 5, que existe justo para mostrar qué pasa sin él.
+#
+# Este archivo NO guarda ningún token escrito a mano: los lee de la
+# respuesta del login con la sintaxis {{login.response.body.token}},
+# así que se puede subir al repositorio sin publicar una llave.
+#
+# Datos del seeder (clave de los dos: password123):
+#   Ana    ana@taskboard.test     comercios 1 y 2
+#   Carlos carlos@taskboard.test  comercios 3 y 4
+#
+# La guía usa "comercio 2" como ejemplo de comercio ajeno a Ana. En
+# este proyecto el 2 es de Ana, así que el ajeno es el 3.
+####################################################################
+
+@host = http://127.0.0.1:8000/api
+
+
+####################################################################
+# A. Los logins — las únicas peticiones sin token
+####################################################################
+
+### 1. Login de Ana
+# Espera 201 Created + { "token": "1|...", "tipo": "Bearer" }.
+# Es 201 y no 200 porque se está CREANDO un token nuevo.
+# El nombre @loginAna es lo que permite leer su respuesta más abajo.
+# @name loginAna
+POST {{host}}/login
+Accept: application/json
+Content-Type: application/json
+
+{
+  "email": "ana@taskboard.test",
+  "password": "password123",
+  "dispositivo": "rest-client-ana"
+}
+
+###
+
+@tokenAna = {{loginAna.response.body.token}}
+
+
+### 2. Login de Carlos
+# El segundo usuario. Sin él no hay forma de comprobar el
+# aislamiento: con un solo token, un 404 podría salir porque la fila
+# no existe y no porque sea ajena.
+# @name loginCarlos
+POST {{host}}/login
+Accept: application/json
+Content-Type: application/json
+
+{
+  "email": "carlos@taskboard.test",
+  "password": "password123",
+  "dispositivo": "rest-client-carlos"
+}
+
+###
+
+@tokenCarlos = {{loginCarlos.response.body.token}}
+
+
+### 3. Login con clave incorrecta
+# Espera 422 + "Las credenciales no coinciden."
+# El mismo mensaje sale con un correo que no existe: si cada caso
+# respondiera distinto, la API serviría para averiguar qué correos
+# tienen cuenta probando direcciones una por una.
+POST {{host}}/login
+Accept: application/json
+Content-Type: application/json
+
+{
+  "email": "ana@taskboard.test",
+  "password": "esta-no-es",
+  "dispositivo": "rest-client-intruso"
+}
+
+
+####################################################################
+# B. Qué pasa sin token
+####################################################################
+
+### 4. Comercios sin token, con Accept
+# Espera 401 + { "message": "Unauthenticated." }
+# Es la misma dirección que la semana pasada devolvía los cuatro
+# comercios de la base sin preguntarle nada a nadie.
+GET {{host}}/comercios
+Accept: application/json
+
+
+### 5. Comercios sin token y SIN Accept
+# Espera 302 hacia /login (una página web) en vez de 401 en JSON.
+# Sin el encabezado, Laravel supone que del otro lado hay un
+# navegador. Una redirección no le sirve de nada a un programa: no
+# dice si la petición falló y no trae ningún dato del error.
+GET {{host}}/comercios
+
+
+####################################################################
+# C. Con el token de Ana
+####################################################################
+
+### 6. Yo
+# Espera 200 con id, name y email de Ana.
+# El servidor no recibió ningún dato que diga quién es Ana: lo dedujo
+# del token.
+GET {{host}}/yo
+Accept: application/json
+Authorization: Bearer {{tokenAna}}
+
+
+### 7. Mis comercios
+# Espera 200 con DOS comercios: Café Amanecer y Pupusería Doña Marta.
+# Que sean dos y no cuatro es la prueba de que el filtro funciona.
+GET {{host}}/comercios
+Accept: application/json
+Authorization: Bearer {{tokenAna}}
+
+
+### 8. Un comercio de Carlos
+# Espera 404. El comercio 3 existe, pero no es de Ana.
+# Es 404 y no 403 a propósito: un 403 confirmaría que esa fila
+# existe, y con ids correlativos eso alcanza para contar cuántos
+# comercios hay en el sistema.
+GET {{host}}/comercios/3
+Accept: application/json
+Authorization: Bearer {{tokenAna}}
+
+
+### 9. Mis transacciones
+# Espera 200 y solo transacciones de los comercios 1 y 2.
+GET {{host}}/transacciones
+Accept: application/json
+Authorization: Bearer {{tokenAna}}
+
+
+### 10. Una transacción de Carlos
+# Espera 404. La transacción 4 es del comercio 4, de Carlos.
+# El route model binding SÍ encuentra la fila: el 404 lo pone el
+# método autorizar() del controlador.
+GET {{host}}/transacciones/4
+Accept: application/json
+Authorization: Bearer {{tokenAna}}
+
+
+### 11. Crear una transacción en mi propio comercio
+# Espera 201 Created.
+# @name crearPropia
+POST {{host}}/transacciones
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{tokenAna}}
+
+{
+  "comercio_id": 1,
+  "cliente_nombre": "Luis Mena",
+  "monto": 30.25
+}
+
+
+### 12. Crear una transacción en un comercio de Carlos
+# Espera 422, y es la petición que mejor muestra lo que cambió.
+# No hay una sola línea nueva protegiendo esto: la regla exists con
+# where user_id está en GuardarTransaccionRequest desde la Semana 12.
+# Lo que faltaba era el usuario, y ahora lo trae el token.
+POST {{host}}/transacciones
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{tokenAna}}
+
+{
+  "comercio_id": 3,
+  "cliente_nombre": "Cliente falso",
+  "monto": 99.99
+}
+
+
+### 13. Borrar la transacción que creé en la 11
+# Espera 204 No Content. Deja la base como estaba.
+DELETE {{host}}/transacciones/{{crearPropia.response.body.$.data.id}}
+Accept: application/json
+Authorization: Bearer {{tokenAna}}
+
+
+####################################################################
+# D. Con el token de Carlos — la misma API, otra identidad
+####################################################################
+
+### 14. Yo
+# Espera 200 con los datos de Carlos. Misma dirección que la 6 y
+# respuesta distinta: lo único que cambió fue el token.
+GET {{host}}/yo
+Accept: application/json
+Authorization: Bearer {{tokenCarlos}}
+
+
+### 15. Mis comercios
+# Espera 200 con los comercios 3 y 4, y ninguno de Ana.
+GET {{host}}/comercios
+Accept: application/json
+Authorization: Bearer {{tokenCarlos}}
+
+
+### 16. Borrar una transacción de Ana
+# Espera 404, y es la petición más importante del archivo.
+# La transacción 1 existe y es del comercio 1, de Ana. Un 404 acá
+# significa dos cosas buenas al mismo tiempo: que no se borró nada, y
+# que la respuesta ni siquiera confirma que esa transacción exista.
+DELETE {{host}}/transacciones/1
+Accept: application/json
+Authorization: Bearer {{tokenCarlos}}
+
+
+####################################################################
+# E. El reto: sesiones abiertas y revocación
+####################################################################
+
+### 17. Segundo login de Ana, con otro nombre de dispositivo
+# Para que haya DOS sesiones suyas vivas al mismo tiempo.
+# @name loginMovil
+POST {{host}}/login
+Accept: application/json
+Content-Type: application/json
+
+{
+  "email": "ana@taskboard.test",
+  "password": "password123",
+  "dispositivo": "app-movil-ana"
+}
+
+
+### 18. Mis sesiones abiertas
+# Espera 200 con las dos sesiones de Ana, cada una con su nombre de
+# dispositivo y su último uso. Lo que NO debe traer es la columna
+# token: ahí vive el hash, y una pantalla de dispositivos conectados
+# no necesita el secreto para cumplir su función.
+# @name sesiones
+GET {{host}}/tokens
+Accept: application/json
+Authorization: Bearer {{tokenAna}}
+
+
+### 19. Cerrar la sesión del móvil desde esta sesión
+# Espera 204. Es el caso del teléfono robado: se revoca un
+# dispositivo y los demás siguen adentro.
+#
+# El id sale de la lista de la petición 18 y no del login, porque la
+# respuesta del login trae el token completo ("5|aB9x…") y la ruta
+# necesita solo el número. La lista viene ordenada del token más
+# nuevo al más viejo, así que data[0] es el del móvil, que se acaba
+# de crear en la petición 17.
+DELETE {{host}}/tokens/{{sesiones.response.body.$.data[0].id}}
+Accept: application/json
+Authorization: Bearer {{tokenAna}}
+
+
+####################################################################
+# F. Cerrar la sesión de verdad
+####################################################################
+
+### 20. Logout
+# Espera 204. En la API no hay sesión que destruir: cerrar sesión es
+# borrar la fila del token.
+POST {{host}}/logout
+Accept: application/json
+Authorization: Bearer {{tokenAna}}
+
+
+### 21. Yo, con el token ya revocado
+# Espera 401. El token que se manda es EL MISMO de la petición 6,
+# letra por letra, y hace un segundo funcionaba. Esa es la diferencia
+# entre borrar el token del cliente (olvidarlo) y revocarlo en el
+# servidor (apagarlo).
+GET {{host}}/yo
+Accept: application/json
+Authorization: Bearer {{tokenAna}}
+
+
+####################################################################
+# G. Los errores del laboratorio de depuración
+####################################################################
+
+### 22. El token SIN la palabra Bearer
+# Espera 401 aunque el token sea perfecto. El encabezado se lee
+# entero: sin el esquema, Sanctum no encuentra nada que verificar.
+# (Hay que correr antes la petición 2 para tener token de Carlos.)
+GET {{host}}/yo
+Accept: application/json
+Authorization: {{tokenCarlos}}
+
+
+### 23. Un token inventado
+# Espera 401. Igual que uno vencido y que uno revocado: para el
+# cliente los tres casos piden la misma reacción, volver a entrar.
+GET {{host}}/yo
+Accept: application/json
+Authorization: Bearer 99|estetokennoexisteenlabasededatos

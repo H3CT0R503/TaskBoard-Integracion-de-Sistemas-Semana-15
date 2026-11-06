@@ -1,0 +1,51 @@
+meta {
+  name: CL-17 · Monto como texto "25.50"
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 1,
+    "cliente_nombre": "Luis Mena",
+    "monto": "25.50"
+  }
+}
+
+script:post-response {
+  bru.setVar("idCL17", res.getBody().data.id);
+}
+
+tests {
+  test("CL-17 responde 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("CL-17 vuelve como número, no como texto", function () {
+    expect(res.getBody().data.monto).to.be.a("number");
+  });
+}
+
+docs {
+  CASO PROPIO · partición: el número correcto, con el tipo equivocado.
+
+  Mi esperado: 201. La regla numeric acepta una cadena que contenga un número, y
+  me parece bien que la acepte: muchos clientes de JavaScript mandan los valores
+  de un formulario como texto sin darse cuenta.
+
+  Lo que sí tiene que pasar es que la RESPUESTA lo devuelva como número, porque
+  ese es el contrato que fijó el Resource en la Semana 13. La segunda prueba
+  comprueba justamente eso.
+
+  Obtenido: 201 y monto: 25.5 como número. ✓ Pasa.
+}

@@ -1,0 +1,44 @@
+meta {
+  name: CL-05 · Monto con coma decimal
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 1,
+    "cliente_nombre": "Luis Mena",
+    "monto": "25,50"
+  }
+}
+
+tests {
+  test("CL-05 responde 422", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("CL-05 el error está en monto", function () {
+    expect(res.getBody().errors).to.have.property("monto");
+  });
+}
+
+docs {
+  SEMIARMADO · partición de equivalencia: número escrito a la europea.
+
+  Mi esperado: 422. La regla numeric no acepta la coma, y está bien que no la
+  acepte: el formato lo decide quien MUESTRA el dato, no quien lo envía. Si la API
+  aceptara "25,50" tendría que adivinar si la coma separa decimales o miles, y
+  "1,500" sería 1.5 o 1500 según el país.
+
+  Obtenido: 422 "El monto debe ser un número." ✓ Pasa.
+}

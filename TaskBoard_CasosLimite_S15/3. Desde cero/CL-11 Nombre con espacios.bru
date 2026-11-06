@@ -1,0 +1,46 @@
+meta {
+  name: CL-11 · Nombre con solo espacios
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 1,
+    "cliente_nombre": "     ",
+    "monto": 25.5
+  }
+}
+
+tests {
+  test("CL-11 responde 422", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("CL-11 el error está en cliente_nombre", function () {
+    expect(res.getBody().errors).to.have.property("cliente_nombre");
+  });
+}
+
+docs {
+  DESDE CERO · partición: una cadena que parece llena pero está vacía.
+
+  Mi esperado: 422. Un nombre de cinco espacios no identifica a nadie.
+
+  Obtenido: 422 "Debes indicar el nombre del cliente." ✓ Pasa.
+
+  Y es interesante POR QUÉ pasa: la regla required por sí sola aceptaría espacios.
+  Lo que los convierte en vacío es el middleware TrimStrings de Laravel, que
+  recorta los espacios de toda la entrada ANTES de validar. Es una defensa que ya
+  estaba puesta y que no se ve en el Form Request.
+}

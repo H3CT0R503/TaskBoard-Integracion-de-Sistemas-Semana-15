@@ -1,0 +1,49 @@
+meta {
+  name: CL-09 · Tres decimales
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 1,
+    "cliente_nombre": "Luis Mena",
+    "monto": 25.999
+  }
+}
+
+tests {
+  test("CL-09 responde 422", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("CL-09 el error está en monto", function () {
+    expect(res.getBody().errors).to.have.property("monto");
+  });
+}
+
+docs {
+  SEMIARMADO · el jueves FALLA (es el error E-02)
+
+  Técnica: partición de equivalencia, números con más de dos decimales.
+
+  Mi esperado: 422. La columna guarda dos decimales, así que un tercer decimal no
+  se puede representar y la API debería decirlo.
+
+  Obtenido el jueves: 201, y la transacción quedó guardada con monto 26. MySQL
+  redondeó el valor en silencio: el cliente pidió cobrar 25.999 y la pasarela
+  registró un cobro de 26.00, un centavo más, sin avisarle a nadie.
+
+  Severidad Alta: no se cae nada, pero se altera dinero sin que el cliente lo
+  sepa, y la respuesta 201 le asegura que todo salió bien.
+}

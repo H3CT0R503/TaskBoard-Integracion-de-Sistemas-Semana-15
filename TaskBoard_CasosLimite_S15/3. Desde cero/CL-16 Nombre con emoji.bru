@@ -1,0 +1,51 @@
+meta {
+  name: CL-16 · Nombre con emoji
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 1,
+    "cliente_nombre": "Luis Mena 🎉",
+    "monto": 25.5
+  }
+}
+
+script:post-response {
+  bru.setVar("idCL16", res.getBody().data.id);
+}
+
+tests {
+  test("CL-16 responde 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("CL-16 el emoji se guardó y volvió igual", function () {
+    expect(res.getBody().data.cliente).to.equal("Luis Mena 🎉");
+  });
+}
+
+docs {
+  CASO PROPIO · partición: caracteres fuera del alfabeto latino.
+
+  Mi esperado: 201 con el nombre intacto. Un emoji ocupa cuatro bytes en UTF-8, y
+  si la base no estuviera en utf8mb4 se guardaría recortado o daría error.
+
+  Obtenido: 201 y el emoji vuelve igual. ✓ Pasa. La base se creó con
+  CHARACTER SET utf8mb4, así que aguanta.
+
+  Lo probé porque es un caso real: la gente escribe nombres con tildes, con ñ y
+  con emojis, y un recorte silencioso ahí es un dato corrupto que nadie ve hasta
+  que alguien busca al cliente y no lo encuentra.
+}

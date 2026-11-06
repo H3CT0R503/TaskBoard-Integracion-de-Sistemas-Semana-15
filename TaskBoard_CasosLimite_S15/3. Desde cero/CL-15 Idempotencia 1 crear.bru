@@ -1,0 +1,40 @@
+meta {
+  name: CL-15 · Idempotencia (1) crear
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 1,
+    "cliente_nombre": "Prueba de idempotencia",
+    "monto": 25.5
+  }
+}
+
+script:post-response {
+  bru.setVar("idCL15", res.getBody().data.id);
+}
+
+tests {
+  test("CL-15.1 responde 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+}
+
+docs {
+  DESDE CERO · idempotencia · primer paso de tres.
+
+  Crea la transacción que los dos DELETE siguientes van a borrar, y guarda su id
+  en {{idCL15}}.
+}

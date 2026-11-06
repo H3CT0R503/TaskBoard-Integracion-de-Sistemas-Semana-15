@@ -1,0 +1,32 @@
+meta {
+  name: LEEME · comprobar la conexión
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/comercios
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+tests {
+  test("LEEME responde 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("LEEME devuelve los comercios de Ana", function () {
+    expect(res.getBody().data.length).to.equal(2);
+  });
+}
+
+docs {
+  No es un caso límite: sirve para comprobar que el servidor responde y que el
+  token de la colección está puesto.
+
+  Si esta petición da 401, falta correr "0. Preparación / Login Ana".
+}

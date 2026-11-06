@@ -1,0 +1,47 @@
+meta {
+  name: CL-07 · Monto sobre el máximo
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 1,
+    "cliente_nombre": "Luis Mena",
+    "monto": 100000000
+  }
+}
+
+tests {
+  test("CL-07 responde 422", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("CL-07 el error está en monto", function () {
+    expect(res.getBody().errors).to.have.property("monto");
+  });
+}
+
+docs {
+  EJEMPLO RESUELTO · el jueves FALLA (es el error E-01)
+
+  Técnica: valor límite, muy por encima del máximo que admite la columna.
+  En este proyecto monto es decimal(8,2), así que el tope es 999 999.99.
+
+  Esperado: 422 con error en "monto".
+  Obtenido el jueves: 500, con "Numeric value out of range: 1264 Out of range
+  value for column 'monto'" en la respuesta y en storage/logs/laravel.log.
+
+  La prueba queda en ROJO a propósito: es la evidencia del error. El viernes, con
+  la regla max:999999.99, se pone en verde sin tocar esta prueba.
+}

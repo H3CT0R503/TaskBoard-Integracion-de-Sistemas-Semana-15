@@ -1,0 +1,27 @@
+meta {
+  name: CL-15 · Idempotencia (2) borrar
+  type: http
+  seq: 10
+}
+
+delete {
+  url: {{host}}/transacciones/{{idCL15}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+tests {
+  test("CL-15.2 responde 204", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}
+
+docs {
+  DESDE CERO · idempotencia · segundo paso.
+
+  Mi esperado: 204 No Content. Se hizo lo que se pidió y no hay nada que devolver.
+}

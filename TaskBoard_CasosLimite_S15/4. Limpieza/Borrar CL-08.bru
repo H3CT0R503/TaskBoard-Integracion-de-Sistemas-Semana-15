@@ -1,0 +1,30 @@
+meta {
+  name: Borrar la transacción de CL-08
+  type: http
+  seq: 2
+}
+
+delete {
+  url: {{host}}/transacciones/{{idCL08}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+tests {
+  test("Limpieza CL-08 responde 204", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}
+
+docs {
+  Borra la transacción que creó CL-08, usando el id que esa petición guardó en
+  {{idCL08}}.
+
+  No es un caso límite: es higiene. Sin esta carpeta, cada corrida de la colección
+  dejaría cuatro filas nuevas en la base y los conteos del experimento de
+  integridad se irían moviendo entre una corrida y la siguiente.
+}

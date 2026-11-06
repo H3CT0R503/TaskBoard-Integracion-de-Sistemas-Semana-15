@@ -1,0 +1,52 @@
+meta {
+  name: CL-12 · Estado al crear
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 1,
+    "cliente_nombre": "Luis Mena",
+    "monto": 25.5,
+    "estado": "Completada"
+  }
+}
+
+tests {
+  test("CL-12 responde 422", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("CL-12 el error está en estado", function () {
+    expect(res.getBody().errors).to.have.property("estado");
+  });
+}
+
+docs {
+  DESDE CERO · contrato · el jueves FALLA (es el error E-03)
+
+  El jueves este caso quedó como ⚠ Contrato ambiguo: nadie había decidido qué
+  debía pasar si el cliente manda "estado" al crear. Hay tres respuestas posibles
+  y las tres son defendibles: aceptarlo, ignorarlo en silencio o rechazarlo.
+
+  Obtenido el jueves: 201, y el estado se guardó como "Iniciada". El controlador
+  usa only(), así que el campo se descarta sin decir nada.
+
+  Decisión del viernes: rechazarlo con 422. Ignorar en silencio es lo peor de las
+  tres, porque el cliente recibe un 201 que le dice "listo" y se queda creyendo
+  que la transacción nació Completada, cuando en realidad nació Iniciada. En una
+  pasarela de pagos esa diferencia es un cobro que alguien cree cobrado.
+
+  La regla es 'estado' => ['prohibited'].
+}

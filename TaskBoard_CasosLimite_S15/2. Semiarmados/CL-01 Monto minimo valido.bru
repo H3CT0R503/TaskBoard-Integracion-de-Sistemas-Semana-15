@@ -1,0 +1,48 @@
+meta {
+  name: CL-01 · Monto mínimo válido
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 1,
+    "cliente_nombre": "Luis Mena",
+    "monto": 0.01
+  }
+}
+
+script:post-response {
+  bru.setVar("idCL01", res.getBody().data.id);
+}
+
+tests {
+  test("CL-01 responde 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("CL-01 nace en Iniciada", function () {
+    expect(res.getBody().data.estado).to.equal("Iniciada");
+  });
+}
+
+docs {
+  SEMIARMADO · valor límite, justo EN el mínimo permitido.
+
+  Mi esperado (escrito antes de enviar): 201, porque 0.01 cumple min:0.01. El
+  borde se prueba de los dos lados: CL-02 cubre el 0 y este cubre el 0.01.
+
+  Obtenido: 201. ✓ Pasa.
+
+  Guarda el id en {{idCL01}} para que la carpeta 4. Limpieza lo borre al final.
+}

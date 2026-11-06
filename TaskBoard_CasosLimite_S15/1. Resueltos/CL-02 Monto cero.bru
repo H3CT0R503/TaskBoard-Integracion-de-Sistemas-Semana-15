@@ -1,0 +1,41 @@
+meta {
+  name: CL-02 · Monto cero
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 1,
+    "cliente_nombre": "Luis Mena",
+    "monto": 0
+  }
+}
+
+tests {
+  test("CL-02 responde 422", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("CL-02 el error está en monto", function () {
+    expect(res.getBody().errors).to.have.property("monto");
+  });
+}
+
+docs {
+  EJEMPLO RESUELTO · debe PASAR
+
+  Técnica: valor límite, justo debajo del mínimo 0.01.
+  Esperado: 422 con error en "monto".
+  Bitácora: CL-02 · esperado 422 · obtenido 422 · ✓ Pasa
+}

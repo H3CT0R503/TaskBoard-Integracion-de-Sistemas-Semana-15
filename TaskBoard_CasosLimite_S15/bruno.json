@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "TaskBoard · Casos límite (Semana 15)",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

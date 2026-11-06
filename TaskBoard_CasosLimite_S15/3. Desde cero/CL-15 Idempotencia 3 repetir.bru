@@ -1,0 +1,35 @@
+meta {
+  name: CL-15 · Idempotencia (3) repetir
+  type: http
+  seq: 11
+}
+
+delete {
+  url: {{host}}/transacciones/{{idCL15}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+tests {
+  test("CL-15.3 responde 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}
+
+docs {
+  DESDE CERO · idempotencia · tercer paso: la MISMA petición otra vez.
+
+  Mi esperado: 404. La fila ya no está, así que para quien pregunta no existe.
+
+  El punto del experimento: los dos códigos son distintos (204 y 404) pero el
+  ESTADO FINAL de la base es el mismo. Eso es ser idempotente: repetir un DELETE
+  no borra dos veces ni deja la base distinta.
+
+  POST no es idempotente, y ahí está el peligro: si una tienda reintenta un cobro
+  porque no le llegó la respuesta a tiempo, quedan DOS cobros al mismo cliente.
+  Para evitarlo las pasarelas reales piden una clave de idempotencia en cada POST.
+}

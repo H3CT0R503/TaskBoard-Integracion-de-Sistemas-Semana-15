@@ -1,0 +1,44 @@
+meta {
+  name: CL-14 · Sin Content-Type
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{host}}/transacciones
+  body: text
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:text {
+  { "comercio_id": 1, "cliente_nombre": "Luis Mena", "monto": 25.50 }
+}
+
+tests {
+  test("CL-14 responde 415", function () {
+    expect(res.getStatus()).to.equal(415);
+  });
+
+  test("CL-14 el mensaje explica qué falta", function () {
+    expect(res.getBody().message).to.include("application/json");
+  });
+}
+
+docs {
+  DESDE CERO · caso negativo · el jueves quedó ⚠ CONTRATO AMBIGUO
+
+  El JSON es válido; lo que falta es el encabezado Content-Type. Bruno solo lo
+  agrega solo cuando el Body está en modo JSON, así que va en modo Text.
+
+  El jueves no pude escribir un esperado, y eso es el hallazgo: el contrato no
+  decía nada sobre este caso. Obtenido: 422 diciendo que faltan los tres campos,
+  porque sin Content-Type Laravel no parsea el cuerpo y para la validación la
+  petición llegó vacía. Otra vez un mensaje que apunta al lugar equivocado.
+
+  Decisión del viernes: 415 Unsupported Media Type, que es el código que existe
+  para exactamente esto. El mismo middleware de CL-13 lo resuelve.
+}

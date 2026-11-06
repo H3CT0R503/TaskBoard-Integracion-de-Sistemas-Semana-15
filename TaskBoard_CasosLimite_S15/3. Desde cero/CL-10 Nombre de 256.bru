@@ -1,0 +1,58 @@
+meta {
+  name: CL-10 · Nombre de 256 caracteres
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 1,
+    "cliente_nombre": "{{nombre256}}",
+    "monto": 25.5
+  }
+}
+
+script:pre-request {
+  bru.setVar("nombre256", "a".repeat(256));
+}
+
+tests {
+  test("CL-10 responde 422", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("CL-10 el error está en cliente_nombre", function () {
+    expect(res.getBody().errors).to.have.property("cliente_nombre");
+  });
+
+  test("CL-10 el mensaje está en español", function () {
+    expect(res.getBody().errors.cliente_nombre[0]).to.not.include("validation.");
+  });
+}
+
+docs {
+  DESDE CERO · valor límite: un carácter por encima del máximo.
+
+  Es el par de CL-08: el borde se prueba de los dos lados.
+
+  Mi esperado: 422 con error en cliente_nombre y un mensaje legible en español,
+  igual que todos los demás mensajes de este Form Request.
+
+  Obtenido el jueves: 422 correcto, PERO el mensaje llegó como
+  "validation.max.string", que es la clave interna del archivo de idioma sin
+  traducir. Es el error E-04, severidad Baja: la API funciona, pero le entrega al
+  cliente un texto que ninguna persona puede leer.
+
+  Por eso la segunda prueba queda en ROJO el jueves y en verde el viernes, cuando
+  se agrega el mensaje en messages().
+}

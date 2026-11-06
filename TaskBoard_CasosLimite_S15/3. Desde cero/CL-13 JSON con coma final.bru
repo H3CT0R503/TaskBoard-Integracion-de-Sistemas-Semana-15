@@ -1,0 +1,48 @@
+meta {
+  name: CL-13 · JSON con coma al final
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{host}}/transacciones
+  body: text
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:text {
+  { "comercio_id": 1, "cliente_nombre": "Luis Mena", "monto": 25.50, }
+}
+
+tests {
+  test("CL-13 responde 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+
+  test("CL-13 el mensaje habla del JSON, no de campos faltantes", function () {
+    expect(res.getBody().message.toLowerCase()).to.include("json");
+  });
+}
+
+docs {
+  DESDE CERO · caso negativo · el jueves FALLA (es el error E-05)
+
+  El cuerpo va en modo Text, no JSON, porque el editor de Bruno no deja guardar un
+  JSON inválido. El encabezado Content-Type: application/json se pone a mano, que
+  es lo que haría un cliente real con un error de armado.
+
+  Mi esperado: 400 Bad Request. El problema no es qué datos llegaron sino que el
+  cuerpo no se pudo leer, y 400 es el código de "no entendí la petición".
+
+  Obtenido el jueves: 422 diciendo que faltan comercio_id, cliente_nombre y monto.
+  Es una respuesta engañosa: los tres campos SÍ venían, lo que falló fue la coma
+  de más. Un programador del lado del cliente los buscaría uno por uno sin
+  encontrar nada raro.
+
+  El viernes se corrige con un middleware que revisa el cuerpo antes de validar.
+}

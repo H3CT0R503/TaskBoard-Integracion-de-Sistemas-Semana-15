@@ -1,0 +1,54 @@
+meta {
+  name: CL-08 · Nombre de 255 caracteres
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{host}}/transacciones
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "comercio_id": 1,
+    "cliente_nombre": "{{nombre255}}",
+    "monto": 25.5
+  }
+}
+
+script:pre-request {
+  bru.setVar("nombre255", "a".repeat(255));
+}
+
+script:post-response {
+  bru.setVar("idCL08", res.getBody().data.id);
+}
+
+tests {
+  test("CL-08 responde 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("CL-08 guardó los 255 caracteres completos", function () {
+    expect(res.getBody().data.cliente.length).to.equal(255);
+  });
+}
+
+docs {
+  DESDE CERO · valor límite: exactamente el máximo permitido.
+
+  Mi esperado: 201. La regla es max:255 y la columna es VARCHAR(255), así que 255
+  tiene que entrar entero. La segunda prueba comprueba justamente eso: que no se
+  guardó recortado.
+
+  El nombre se genera en Script → Pre Request con "a".repeat(255), para no
+  escribir 255 letras a mano.
+
+  Obtenido: 201 con los 255 caracteres. ✓ Pasa.
+}

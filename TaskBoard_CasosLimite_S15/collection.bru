@@ -1,0 +1,50 @@
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{tokenAna}}
+}
+
+vars:pre-request {
+  host: http://127.0.0.1:8000/api
+}
+
+docs {
+  # TaskBoard · Casos límite (Semana 15)
+
+  Colección de la Guía N.º 15 (jueves) y N.º 16 (viernes).
+  Héctor Alonso Interiano Figueroa · IF-64141-63 · Integración de Sistemas · 02-2026
+
+  ## Cómo correrla
+
+  1. Levanta el proyecto: php artisan serve
+  2. Deja la base como la siembra el seeder: php artisan migrate:fresh --seed
+  3. Ejecuta la colección completa con Run (botón de la colección).
+
+  El orden importa: "0. Preparación / Login Ana" guarda el token en {{tokenAna}}
+  y todas las demás peticiones lo heredan como Bearer.
+
+  ## Qué esperar
+
+  Los tests escritos son el CONTRATO, no lo que la API responde hoy. Por eso,
+  con el código del jueves, seis casos quedan en ROJO: CL-07, CL-09, CL-10,
+  CL-12, CL-13 y CL-14. Esa es la evidencia de los errores.
+
+  Con las correcciones del viernes, la colección completa queda en VERDE sin
+  tocar una sola prueba. Eso es una prueba de regresión.
+
+  ## La carpeta 4. Limpieza
+
+  Cuatro casos crean transacciones de verdad (CL-01, CL-08, CL-16 y CL-17). La
+  última carpeta las borra usando los ids que esos casos guardaron, para que la
+  base quede igual que antes de correr y los conteos no se desplacen entre una
+  corrida y la siguiente.
+
+  ## Una diferencia con la guía
+
+  La guía supone que la columna monto es decimal(10,2), con tope 99 999 999.99.
+  En este proyecto es decimal(8,2), así que el tope real es 999 999.99 y esa es
+  la cota que usa la validación. El caso CL-07 sigue siendo válido: 100 000 000
+  está muy por encima de los dos topes.
+}
